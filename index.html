@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Árbol Genealógico - Familia Buitrago</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
   :root {
     --azul: #4a7fb5;
     --rosa: #c9648a;
     --gris: #8a8a8a;
     --fondo: #f7f6f3;
-    --linea: #b9b2a3;
+    --linea: #c7c0b2;
+    --hover: #eef2f7;
   }
   * { box-sizing: border-box; }
   body {
@@ -66,7 +66,8 @@
     position: relative;
     width: 100%;
     height: calc(100vh - 58px);
-    overflow: hidden;
+    overflow: auto;
+    background: #fff;
   }
   #mensaje {
     position: absolute;
@@ -79,41 +80,61 @@
     max-width: 480px;
   }
   #mensaje.error { color: #a33; }
-  svg { width: 100%; height: 100%; display: block; }
-  .enlace {
-    fill: none;
-    stroke: var(--linea);
-    stroke-width: 1.6px;
+
+  /* ---------- estilo "explorador de Windows" ---------- */
+  #arbol {
+    padding: 18px 24px 80px 18px;
+    font-size: 14px;
+    line-height: 1.9;
+    user-select: none;
   }
-  .nodo circle {
-    stroke-width: 2px;
-    cursor: pointer;
+  .nodo-wrapper { position: relative; }
+  .fila-nodo {
+    display: flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
   }
-  .nodo.M circle { fill: var(--azul); stroke: #2f5a86; }
-  .nodo.F circle { fill: var(--rosa); stroke: #8f3f5e; }
-  .nodo.otro circle { fill: var(--gris); stroke: #5c5c5c; }
-  .nodo text {
-    font-size: 12px;
-    fill: #2b2b2b;
+  .fila-nodo:hover { background: var(--hover); }
+  .fila-nodo.raiz .texto { font-weight: 700; font-size: 15px; }
+  .toggle {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    color: #555;
+    font-size: 11px;
+    flex: none;
   }
-  .nodo .anio {
-    font-size: 10px;
-    fill: #6b6b6b;
+  .toggle.sin-hijos { color: #c9c2b3; font-size: 8px; }
+  .punto {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin: 0 8px 0 4px;
+    flex: none;
   }
-  .nodo.resaltado circle {
-    stroke: #e0a800;
-    stroke-width: 4px;
+  .punto.M { background: var(--azul); }
+  .punto.F { background: var(--rosa); }
+  .punto.otro { background: var(--gris); }
+  .texto { color: #2b2b2b; }
+  .fila-nodo.resaltado { background: #fff3b0; }
+  .hijos {
+    margin-left: 8px;
+    padding-left: 15px;
+    border-left: 1px dashed var(--linea);
   }
-  .nodo.atenuado { opacity: 0.15; }
   .leyenda {
-    position: absolute;
+    position: fixed;
     bottom: 14px;
     left: 14px;
-    background: rgba(255,255,255,.92);
+    background: rgba(255,255,255,.94);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.15);
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    z-index: 5;
   }
   .leyenda span { display: inline-flex; align-items: center; margin-right: 14px; }
   .leyenda i {
@@ -138,6 +159,7 @@
 
 <div id="contenedor">
   <div id="mensaje">Cargando datos desde Google Sheets...</div>
+  <div id="arbol"></div>
   <div class="leyenda">
     <span><i style="background:var(--azul)"></i>Hombre</span>
     <span><i style="background:var(--rosa)"></i>Mujer</span>
@@ -156,6 +178,7 @@ const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBwo49Js
 const elMensaje = document.getElementById("mensaje");
 const elEstado = document.getElementById("estado");
 const elBuscador = document.getElementById("buscador");
+const elArbol = document.getElementById("arbol");
 
 /* ---------- utilidades de texto ---------- */
 function normalizar(s) {
@@ -235,96 +258,20 @@ function construirArbol(personas) {
   return { raiz, huerfanos };
 }
 
-/* ---------- render con D3 (árbol colapsable, con zoom/pan) ---------- */
-let root, svg, g, treeLayout, zoomBehavior;
-const ANCHO_NODO = 190, ALTO_NODO = 70;
+/* ---------- estado del árbol en memoria ---------- */
+let raizGlobal = null;
 let idSeq = 0;
+let idMap = new Map();
 
-function render(raizData) {
-  document.getElementById("contenedor").querySelectorAll("svg").forEach(n => n.remove());
-
-  const contenedor = document.getElementById("contenedor");
-  const ancho = contenedor.clientWidth, alto = contenedor.clientHeight;
-
-  svg = d3.select("#contenedor").append("svg");
-  g = svg.append("g").attr("transform", "translate(80,40)");
-
-  zoomBehavior = d3.zoom().scaleExtent([0.2, 2.5]).on("zoom", (ev) => {
-    g.attr("transform", ev.transform);
-  });
-  svg.call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(80, 40).scale(0.85));
-
-  root = d3.hierarchy(raizData, d => d.hijos);
-  root.x0 = 0;
-  root.y0 = 0;
-  root.each(d => { d.id = ++idSeq; });
-
-  // Colapsa a partir de la 3a generación visible para que el primer
-  // vistazo no sature la pantalla.
-  root.each(d => {
-    if (d.depth >= 2 && d.children) {
-      d._children = d.children;
-      d.children = null;
-    }
-  });
-
-  treeLayout = d3.tree().nodeSize([ALTO_NODO, ANCHO_NODO]);
-  actualizar(root);
+function etiquetarIds(nodo) {
+  nodo._id = ++idSeq;
+  idMap.set(nodo._id, nodo);
+  (nodo.hijos || []).forEach(etiquetarIds);
 }
 
-function actualizar(fuente) {
-  treeLayout(root);
-
-  const nodos = root.descendants();
-  const enlaces = root.links();
-
-  // --- enlaces ---
-  const linkSel = g.selectAll("path.enlace").data(enlaces, d => d.target.id);
-  linkSel.enter().append("path").attr("class", "enlace")
-    .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x))
-    .merge(linkSel)
-    .transition().duration(300)
-    .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
-  linkSel.exit().remove();
-
-  // --- nodos ---
-  const nodoSel = g.selectAll("g.nodo").data(nodos, d => d.id);
-
-  const nodoEnter = nodoSel.enter().append("g")
-    .attr("class", d => "nodo " + claseGenero(d.data))
-    .attr("transform", d => "translate(" + fuente.y0 + "," + fuente.x0 + ")")
-    .on("click", (ev, d) => {
-      if (d.children) { d._children = d.children; d.children = null; }
-      else { d.children = d._children; d._children = null; }
-      actualizar(d);
-    });
-
-  nodoEnter.append("circle").attr("r", 1e-6);
-  nodoEnter.append("text")
-    .attr("dy", "-0.6em")
-    .attr("x", d => (d.children || d._children) ? -14 : 14)
-    .attr("text-anchor", d => (d.children || d._children) ? "end" : "start")
-    .text(d => d.data.nombre);
-  nodoEnter.append("text")
-    .attr("class", "anio")
-    .attr("dy", "1em")
-    .attr("x", d => (d.children || d._children) ? -14 : 14)
-    .attr("text-anchor", d => (d.children || d._children) ? "end" : "start")
-    .text(d => d.data.anio ? "(" + d.data.anio + ")" : (d.data.generacion || ""));
-
-  const nodoUpdate = nodoEnter.merge(nodoSel);
-  nodoUpdate.transition().duration(300)
-    .attr("transform", d => "translate(" + d.y + "," + d.x + ")");
-  nodoUpdate.select("circle")
-    .attr("r", d => d.data.esRaiz ? 9 : 6.5)
-    .style("fill-opacity", d => d._children ? 1 : (d.children ? 1 : 0.85));
-
-  const nodoExit = nodoSel.exit().transition().duration(300)
-    .attr("transform", d => "translate(" + fuente.y + "," + fuente.x + ")")
-    .remove();
-  nodoExit.select("circle").attr("r", 1e-6);
-
-  nodos.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+function fijarExpansionInicial(nodo, prof) {
+  nodo._expanded = prof < 2; // raíz y 2a generación abiertas, resto colapsado
+  (nodo.hijos || []).forEach(h => fijarExpansionInicial(h, prof + 1));
 }
 
 function claseGenero(d) {
@@ -333,38 +280,94 @@ function claseGenero(d) {
   return "otro";
 }
 
+/* ---------- render estilo "explorador de archivos" ---------- */
+function crearFila(nodo) {
+  const fila = document.createElement("div");
+  fila.className = "fila-nodo" + (nodo.esRaiz ? " raiz" : "") + (nodo._match ? " resaltado" : "");
+  fila.dataset.id = nodo._id;
+
+  const tieneHijos = !!(nodo.hijos && nodo.hijos.length);
+
+  const toggle = document.createElement("span");
+  toggle.className = "toggle" + (tieneHijos ? "" : " sin-hijos");
+  toggle.textContent = tieneHijos ? (nodo._expanded ? "▾" : "▸") : "●";
+  fila.appendChild(toggle);
+
+  const punto = document.createElement("span");
+  punto.className = "punto " + claseGenero(nodo);
+  fila.appendChild(punto);
+
+  const texto = document.createElement("span");
+  texto.className = "texto";
+  let sufijo = "";
+  if (nodo.anio) sufijo = "  (" + nodo.anio + ")";
+  else if (nodo.generacion) sufijo = "  [" + nodo.generacion + "]";
+  texto.textContent = nodo.nombre + sufijo;
+  fila.appendChild(texto);
+
+  if (tieneHijos) {
+    fila.style.cursor = "pointer";
+    fila.addEventListener("click", () => {
+      nodo._expanded = !nodo._expanded;
+      renderArbol();
+    });
+  }
+  return fila;
+}
+
+function construirNodoDOM(nodo) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "nodo-wrapper";
+  wrapper.appendChild(crearFila(nodo));
+
+  if (nodo.hijos && nodo.hijos.length && nodo._expanded) {
+    const hijosWrap = document.createElement("div");
+    hijosWrap.className = "hijos";
+    nodo.hijos.forEach(h => hijosWrap.appendChild(construirNodoDOM(h)));
+    wrapper.appendChild(hijosWrap);
+  }
+  return wrapper;
+}
+
+function renderArbol() {
+  elArbol.innerHTML = "";
+  if (!raizGlobal) return;
+  elArbol.appendChild(construirNodoDOM(raizGlobal));
+}
+
 /* ---------- expandir / colapsar todo ---------- */
 function expandirTodo() {
-  root.each(d => { if (d._children) { d.children = d._children; d._children = null; } });
-  actualizar(root);
+  (function rec(n) { n._expanded = true; (n.hijos || []).forEach(rec); })(raizGlobal);
+  renderArbol();
 }
 function colapsarADosNiveles() {
-  root.each(d => {
-    if (d.depth >= 2 && d.children) { d._children = d.children; d.children = null; }
-    if (d.depth < 2 && d._children) { d.children = d._children; d._children = null; }
-  });
-  actualizar(root);
+  fijarExpansionInicial(raizGlobal, 0);
+  renderArbol();
 }
 
 /* ---------- búsqueda ---------- */
 function buscar(termino) {
   const norm = normalizar(termino);
-  g.selectAll("g.nodo").classed("resaltado", false).classed("atenuado", false);
-  if (!norm) return;
 
-  // abre ramas necesarias para revelar coincidencias colapsadas
-  let cambio = false;
-  root.each(d => {
-    if (normalizar(d.data.nombre).includes(norm) && d._children) {
-      d.children = d._children; d._children = null; cambio = true;
-    }
-  });
-  if (cambio) actualizar(root);
+  // limpia estado de coincidencia previo
+  (function limpiar(n) { n._match = false; (n.hijos || []).forEach(limpiar); })(raizGlobal);
 
-  const coincide = d => normalizar(d.data.nombre).includes(norm);
-  g.selectAll("g.nodo")
-    .classed("resaltado", d => coincide(d))
-    .classed("atenuado", d => !coincide(d));
+  if (!norm) { renderArbol(); return; }
+
+  // marca coincidencias y abre las ramas necesarias para revelarlas
+  function marcar(nodo) {
+    const propio = normalizar(nodo.nombre).includes(norm);
+    let algunDescendiente = false;
+    (nodo.hijos || []).forEach(h => { if (marcar(h)) algunDescendiente = true; });
+    if (algunDescendiente) nodo._expanded = true;
+    nodo._match = propio;
+    return propio || algunDescendiente;
+  }
+  marcar(raizGlobal);
+  renderArbol();
+
+  const primerMatch = elArbol.querySelector(".fila-nodo.resaltado");
+  if (primerMatch && primerMatch.scrollIntoView) primerMatch.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 /* ---------- arranque ---------- */
@@ -373,8 +376,16 @@ async function iniciar() {
     elEstado.textContent = "Cargando...";
     const personas = await cargarDatos();
     const { raiz, huerfanos } = construirArbol(personas);
+
+    idSeq = 0;
+    idMap = new Map();
+    etiquetarIds(raiz);
+    fijarExpansionInicial(raiz, 0);
+    raizGlobal = raiz;
+
     elMensaje.style.display = "none";
-    render(raiz);
+    renderArbol();
+
     const hora = new Date().toLocaleString("es-CO", { hour12: false });
     elEstado.textContent = personas.length + " personas · actualizado " + hora +
       (huerfanos.length ? " · " + huerfanos.length + " sin padre reconocido" : "");
@@ -388,10 +399,9 @@ async function iniciar() {
 }
 
 document.getElementById("btnRefrescar").addEventListener("click", iniciar);
-document.getElementById("btnExpandir").addEventListener("click", () => root && expandirTodo());
-document.getElementById("btnColapsar").addEventListener("click", () => root && colapsarADosNiveles());
-elBuscador.addEventListener("input", (e) => root && buscar(e.target.value));
-window.addEventListener("resize", () => root && render(root.data));
+document.getElementById("btnExpandir").addEventListener("click", () => raizGlobal && expandirTodo());
+document.getElementById("btnColapsar").addEventListener("click", () => raizGlobal && colapsarADosNiveles());
+elBuscador.addEventListener("input", (e) => raizGlobal && buscar(e.target.value));
 
 iniciar();
 </script>
