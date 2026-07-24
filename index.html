@@ -129,13 +129,25 @@
   }
   .info-icono.abierto { color: #2f5a86; font-weight: 700; }
   .detalle {
-    margin-left: 34px;
-    padding: 2px 6px 8px;
+    margin: 2px 0 6px 34px;
+    padding: 8px 12px;
     font-size: 12.5px;
-    color: #555;
-    font-style: italic;
-    white-space: normal;
+    color: #444;
+    background: #f7f7f5;
+    border-left: 3px solid var(--linea);
+    border-radius: 0 6px 6px 0;
+    max-width: 480px;
   }
+  .ficha-persona { margin-bottom: 6px; }
+  .ficha-nombre {
+    font-weight: 700;
+    color: #2f3b4c;
+    margin: 6px 0 2px;
+  }
+  .ficha-nombre:first-child { margin-top: 0; }
+  .linea-ficha { padding: 1px 0; }
+  .linea-ficha.vacio { color: #999; font-style: italic; }
+  .etiqueta-ficha { font-weight: 600; color: #666; }
   .hijos {
     margin-left: 8px;
     padding-left: 15px;
@@ -267,14 +279,35 @@ async function cargarDatos() {
       mama: (r["Mama"] || "").trim(),
       nacimiento: (r["Fecha Nacimiento"] || "").trim(),
       anio: (r["Año"] || "").trim(),
-      conyuge: (r["Conyuge"] || r["Cónyuge"] || "").trim(),
+      conyuge: (r["Pareja"] || r["Conyuge"] || r["Cónyuge"] || "").trim(),
       profesion: (r["Profesion"] || r["Profesión"] || "").trim(),
       lugarNacimiento: (r["Lugar Nacimiento"] || r["Lugar de Nacimiento"] || "").trim(),
       ubicacionActual: (r["Reside Actualmente"] || r["Ubicacion Actual"] || r["Ubicación Actual"] || "").trim(),
+      edad: (r["Edad"] || "").trim(),
+      fallecimiento: (r["Fallecimiento"] || "").trim(),
     }))
     .filter(p => p.nombre);
   if (!filas.length) throw new Error("La hoja se leyó pero no se encontraron filas con 'Nombre'. Revisa los encabezados de columna.");
   return filas;
+}
+
+/* ---------- edad calculada a partir de "Fecha Nacimiento" (dd/mm/aaaa) ---------- */
+function parseFechaDMY(s) {
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (!m) return null;
+  const dia = parseInt(m[1], 10), mes = parseInt(m[2], 10), anio = parseInt(m[3], 10);
+  const d = new Date(anio, mes - 1, dia);
+  return isNaN(d.getTime()) ? null : d;
+}
+function calcularEdad(fechaStr) {
+  const d = parseFechaDMY(fechaStr);
+  if (!d) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - d.getFullYear();
+  const m = hoy.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) edad--;
+  return edad;
 }
 
 /* ---------- arma el árbol a partir de las columnas Papa / Mama ---------- */
@@ -304,17 +337,16 @@ function construirArbol(personas) {
   let raiz;
   if (g1.length >= 2) {
     raiz = {
-      nombre: g1.map(p => p.nombre).join(" & "),
+      nombre: g1.map(p => p.nombre + (p.anio ? " (" + p.anio + ")" : "")).join(" & "),
       genero: "otro",
       esRaiz: true,
       hijos: [],
-      profesion: g1.map(p => p.profesion).filter(Boolean).join(" / "),
-      lugarNacimiento: g1.map(p => p.lugarNacimiento).filter(Boolean).join(" / "),
-      ubicacionActual: g1.map(p => p.ubicacionActual).filter(Boolean).join(" / "),
+      integrantes: g1, // para mostrar la ficha técnica de cada fundador por separado
     };
     g1.forEach(p => { p.hijos = raiz.hijos; });
   } else if (g1.length === 1) {
     raiz = g1[0];
+    raiz.esRaiz = true;
   } else {
     raiz = { nombre: "Familia Buitrago", genero: "otro", esRaiz: true, hijos: [] };
   }
@@ -462,19 +494,16 @@ function crearFila(nodo) {
   texto.textContent = nodo.nombre + sufijo;
   fila.appendChild(texto);
 
-  const tieneDetalle = !!(nodo.profesion || nodo.lugarNacimiento || nodo.ubicacionActual || nodo.conyuge);
-  if (tieneDetalle) {
-    const info = document.createElement("span");
-    info.className = "info-icono" + (nodo._detalleAbierto ? " abierto" : "");
-    info.textContent = "ⓘ";
-    info.title = "Ver más información";
-    info.addEventListener("click", (e) => {
-      e.stopPropagation();
-      nodo._detalleAbierto = !nodo._detalleAbierto;
-      renderArbol();
-    });
-    fila.appendChild(info);
-  }
+  const info = document.createElement("span");
+  info.className = "info-icono" + (nodo._detalleAbierto ? " abierto" : "");
+  info.textContent = "ⓘ";
+  info.title = "Ver ficha técnica";
+  info.addEventListener("click", (e) => {
+    e.stopPropagation();
+    nodo._detalleAbierto = !nodo._detalleAbierto;
+    renderArbol();
+  });
+  fila.appendChild(info);
 
   if (tieneHijos) {
     fila.style.cursor = "pointer";
@@ -486,15 +515,72 @@ function crearFila(nodo) {
   return fila;
 }
 
+function crearLineaFicha(etiqueta, valor) {
+  const linea = document.createElement("div");
+  linea.className = "linea-ficha";
+  const et = document.createElement("span");
+  et.className = "etiqueta-ficha";
+  et.textContent = etiqueta + ": ";
+  linea.appendChild(et);
+  linea.appendChild(document.createTextNode(valor));
+  return linea;
+}
+
+function construirFichaPersona(p) {
+  const cont = document.createElement("div");
+  cont.className = "ficha-persona";
+
+  // Se usa la columna "Edad" del sheet si existe; si no, se calcula desde la
+  // fecha de nacimiento como respaldo.
+  const edadCalc = calcularEdad(p.nacimiento);
+  const edadTexto = p.edad || (edadCalc !== null ? String(edadCalc) : "");
+
+  const campos = [
+    ["Papá", p.papa],
+    ["Mamá", p.mama],
+    ["Fecha de nacimiento", p.nacimiento],
+  ];
+
+  if (p.fallecimiento) {
+    // Solo para fallecidos: fecha de fallecimiento + edad entre paréntesis
+    campos.push(["Fallecimiento", p.fallecimiento + (edadTexto ? " (" + edadTexto + " años)" : "")]);
+  } else {
+    campos.push(["Edad", edadTexto ? (edadTexto + " años") : ""]);
+  }
+
+  campos.push(
+    ["Lugar de nacimiento", p.lugarNacimiento],
+    ["Pareja", p.conyuge],
+    ["Profesión", p.profesion],
+    ["Reside actualmente", p.ubicacionActual]
+  );
+  let algo = false;
+  campos.forEach(([et, val]) => {
+    if (val) { cont.appendChild(crearLineaFicha(et, val)); algo = true; }
+  });
+  if (!algo) {
+    const vacio = document.createElement("div");
+    vacio.className = "linea-ficha vacio";
+    vacio.textContent = "Sin datos adicionales registrados.";
+    cont.appendChild(vacio);
+  }
+  return cont;
+}
+
 function crearDetalle(nodo) {
   const det = document.createElement("div");
   det.className = "detalle";
-  const partes = [];
-  if (nodo.conyuge) partes.push("Cónyuge: " + nodo.conyuge);
-  if (nodo.profesion) partes.push("Profesión: " + nodo.profesion);
-  if (nodo.lugarNacimiento) partes.push("Lugar de nacimiento: " + nodo.lugarNacimiento);
-  if (nodo.ubicacionActual) partes.push("Reside actualmente: " + nodo.ubicacionActual);
-  det.textContent = partes.join("   ·   ");
+  if (nodo.esRaiz && nodo.integrantes && nodo.integrantes.length) {
+    nodo.integrantes.forEach(p => {
+      const encabezado = document.createElement("div");
+      encabezado.className = "ficha-nombre";
+      encabezado.textContent = p.nombre + (p.anio ? " (" + p.anio + ")" : "");
+      det.appendChild(encabezado);
+      det.appendChild(construirFichaPersona(p));
+    });
+  } else {
+    det.appendChild(construirFichaPersona(nodo));
+  }
   return det;
 }
 
