@@ -120,6 +120,22 @@
   .punto.otro { background: var(--gris); }
   .texto { color: #2b2b2b; }
   .fila-nodo.resaltado { background: #fff3b0; }
+  .fila-nodo.atenuado { opacity: .28; }
+  .info-icono {
+    margin-left: 8px;
+    color: #7a8ba3;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .info-icono.abierto { color: #2f5a86; font-weight: 700; }
+  .detalle {
+    margin-left: 34px;
+    padding: 2px 6px 8px;
+    font-size: 12.5px;
+    color: #555;
+    font-style: italic;
+    white-space: normal;
+  }
   .hijos {
     margin-left: 8px;
     padding-left: 15px;
@@ -143,6 +159,49 @@
     border-radius: 50%;
     margin-right: 5px;
   }
+
+  /* ---------- panel de filtros ---------- */
+  .panel-filtros {
+    position: absolute;
+    top: 100%;
+    right: 20px;
+    background: #fff;
+    color: #2b2b2b;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.28);
+    padding: 12px 16px;
+    z-index: 20;
+    display: none;
+    min-width: 190px;
+    font-size: 13px;
+  }
+  .panel-filtros.abierto { display: block; }
+  .opcion-filtro {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 5px 0;
+    cursor: pointer;
+  }
+  .divisor-filtro {
+    font-weight: 600;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #555;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
+  }
+  .mini-btn {
+    margin-top: 8px;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    background: #f2f2f2;
+    color: #333;
+    border-radius: 5px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -153,8 +212,10 @@
   <button id="btnRefrescar" title="Vuelve a leer el Google Sheet">Actualizar datos</button>
   <button id="btnExpandir" title="Expande todas las ramas">Expandir todo</button>
   <button id="btnColapsar" title="Colapsa a la segunda generación">Colapsar</button>
+  <button id="btnFiltros" title="Cónyuges y generaciones">Filtros ▾</button>
   <div class="sep"></div>
   <div id="estado">Cargando...</div>
+  <div class="panel-filtros" id="panelFiltros"></div>
 </header>
 
 <div id="contenedor">
@@ -206,6 +267,10 @@ async function cargarDatos() {
       mama: (r["Mama"] || "").trim(),
       nacimiento: (r["Fecha Nacimiento"] || "").trim(),
       anio: (r["Año"] || "").trim(),
+      conyuge: (r["Conyuge"] || r["Cónyuge"] || "").trim(),
+      profesion: (r["Profesion"] || r["Profesión"] || "").trim(),
+      lugarNacimiento: (r["Lugar Nacimiento"] || r["Lugar de Nacimiento"] || "").trim(),
+      ubicacionActual: (r["Reside Actualmente"] || r["Ubicacion Actual"] || r["Ubicación Actual"] || "").trim(),
     }))
     .filter(p => p.nombre);
   if (!filas.length) throw new Error("La hoja se leyó pero no se encontraron filas con 'Nombre'. Revisa los encabezados de columna.");
@@ -238,7 +303,15 @@ function construirArbol(personas) {
   const g1 = personas.filter(p => p.generacion === "G1");
   let raiz;
   if (g1.length >= 2) {
-    raiz = { nombre: g1.map(p => p.nombre).join(" & "), genero: "otro", esRaiz: true, hijos: [] };
+    raiz = {
+      nombre: g1.map(p => p.nombre).join(" & "),
+      genero: "otro",
+      esRaiz: true,
+      hijos: [],
+      profesion: g1.map(p => p.profesion).filter(Boolean).join(" / "),
+      lugarNacimiento: g1.map(p => p.lugarNacimiento).filter(Boolean).join(" / "),
+      ubicacionActual: g1.map(p => p.ubicacionActual).filter(Boolean).join(" / "),
+    };
     g1.forEach(p => { p.hijos = raiz.hijos; });
   } else if (g1.length === 1) {
     raiz = g1[0];
@@ -262,6 +335,78 @@ function construirArbol(personas) {
 let raizGlobal = null;
 let idSeq = 0;
 let idMap = new Map();
+let mostrarConyuges = false;
+let filtroGeneraciones = null; // Set con las generaciones activas; null = sin filtro (todas)
+
+function generacionesDisponibles() {
+  const set = new Set();
+  (function rec(n) {
+    if (n.generacion) set.add(n.generacion);
+    (n.hijos || []).forEach(rec);
+  })(raizGlobal);
+  return [...set].sort();
+}
+
+function actualizarFiltroGeneracion() {
+  (function marcar(n) {
+    n._fueraFiltro = !!(filtroGeneraciones && n.generacion && !filtroGeneraciones.has(n.generacion));
+    (n.hijos || []).forEach(marcar);
+  })(raizGlobal);
+  renderArbol();
+}
+
+function construirPanelFiltros() {
+  const panel = document.getElementById("panelFiltros");
+  panel.innerHTML = "";
+
+  const filaConyuge = document.createElement("label");
+  filaConyuge.className = "opcion-filtro";
+  const chkConyuge = document.createElement("input");
+  chkConyuge.type = "checkbox";
+  chkConyuge.checked = mostrarConyuges;
+  chkConyuge.addEventListener("change", () => {
+    mostrarConyuges = chkConyuge.checked;
+    renderArbol();
+  });
+  filaConyuge.appendChild(chkConyuge);
+  filaConyuge.appendChild(document.createTextNode(" Mostrar cónyuges"));
+  panel.appendChild(filaConyuge);
+
+  const divisor = document.createElement("div");
+  divisor.className = "divisor-filtro";
+  divisor.textContent = "Generaciones";
+  panel.appendChild(divisor);
+
+  const gens = generacionesDisponibles();
+  filtroGeneraciones = new Set(gens); // por defecto, todas activas (sin atenuar nada)
+
+  const checks = [];
+  gens.forEach(g => {
+    const lbl = document.createElement("label");
+    lbl.className = "opcion-filtro";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = true;
+    chk.addEventListener("change", () => {
+      if (chk.checked) filtroGeneraciones.add(g); else filtroGeneraciones.delete(g);
+      actualizarFiltroGeneracion();
+    });
+    checks.push(chk);
+    lbl.appendChild(chk);
+    lbl.appendChild(document.createTextNode(" " + g));
+    panel.appendChild(lbl);
+  });
+
+  const btnTodas = document.createElement("button");
+  btnTodas.className = "mini-btn";
+  btnTodas.textContent = "Marcar todas";
+  btnTodas.addEventListener("click", () => {
+    checks.forEach(c => { c.checked = true; });
+    filtroGeneraciones = new Set(gens);
+    actualizarFiltroGeneracion();
+  });
+  panel.appendChild(btnTodas);
+}
 
 function etiquetarIds(nodo) {
   nodo._id = ++idSeq;
@@ -283,7 +428,10 @@ function claseGenero(d) {
 /* ---------- render estilo "explorador de archivos" ---------- */
 function crearFila(nodo) {
   const fila = document.createElement("div");
-  fila.className = "fila-nodo" + (nodo.esRaiz ? " raiz" : "") + (nodo._match ? " resaltado" : "");
+  fila.className = "fila-nodo"
+    + (nodo.esRaiz ? " raiz" : "")
+    + (nodo._match ? " resaltado" : "")
+    + (nodo._fueraFiltro ? " atenuado" : "");
   fila.dataset.id = nodo._id;
 
   const tieneHijos = !!(nodo.hijos && nodo.hijos.length);
@@ -291,6 +439,14 @@ function crearFila(nodo) {
   const toggle = document.createElement("span");
   toggle.className = "toggle" + (tieneHijos ? "" : " sin-hijos");
   toggle.textContent = tieneHijos ? (nodo._expanded ? "▾" : "▸") : "●";
+  if (tieneHijos) {
+    toggle.style.cursor = "pointer";
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      nodo._expanded = !nodo._expanded;
+      renderArbol();
+    });
+  }
   fila.appendChild(toggle);
 
   const punto = document.createElement("span");
@@ -302,8 +458,23 @@ function crearFila(nodo) {
   let sufijo = "";
   if (nodo.anio) sufijo = "  (" + nodo.anio + ")";
   else if (nodo.generacion) sufijo = "  [" + nodo.generacion + "]";
+  if (mostrarConyuges && nodo.conyuge) sufijo += "  ⚭ " + nodo.conyuge;
   texto.textContent = nodo.nombre + sufijo;
   fila.appendChild(texto);
+
+  const tieneDetalle = !!(nodo.profesion || nodo.lugarNacimiento || nodo.ubicacionActual || nodo.conyuge);
+  if (tieneDetalle) {
+    const info = document.createElement("span");
+    info.className = "info-icono" + (nodo._detalleAbierto ? " abierto" : "");
+    info.textContent = "ⓘ";
+    info.title = "Ver más información";
+    info.addEventListener("click", (e) => {
+      e.stopPropagation();
+      nodo._detalleAbierto = !nodo._detalleAbierto;
+      renderArbol();
+    });
+    fila.appendChild(info);
+  }
 
   if (tieneHijos) {
     fila.style.cursor = "pointer";
@@ -315,10 +486,23 @@ function crearFila(nodo) {
   return fila;
 }
 
+function crearDetalle(nodo) {
+  const det = document.createElement("div");
+  det.className = "detalle";
+  const partes = [];
+  if (nodo.conyuge) partes.push("Cónyuge: " + nodo.conyuge);
+  if (nodo.profesion) partes.push("Profesión: " + nodo.profesion);
+  if (nodo.lugarNacimiento) partes.push("Lugar de nacimiento: " + nodo.lugarNacimiento);
+  if (nodo.ubicacionActual) partes.push("Reside actualmente: " + nodo.ubicacionActual);
+  det.textContent = partes.join("   ·   ");
+  return det;
+}
+
 function construirNodoDOM(nodo) {
   const wrapper = document.createElement("div");
   wrapper.className = "nodo-wrapper";
   wrapper.appendChild(crearFila(nodo));
+  if (nodo._detalleAbierto) wrapper.appendChild(crearDetalle(nodo));
 
   if (nodo.hijos && nodo.hijos.length && nodo._expanded) {
     const hijosWrap = document.createElement("div");
@@ -383,6 +567,7 @@ async function iniciar() {
     fijarExpansionInicial(raiz, 0);
     raizGlobal = raiz;
 
+    construirPanelFiltros();
     elMensaje.style.display = "none";
     renderArbol();
 
@@ -402,6 +587,18 @@ document.getElementById("btnRefrescar").addEventListener("click", iniciar);
 document.getElementById("btnExpandir").addEventListener("click", () => raizGlobal && expandirTodo());
 document.getElementById("btnColapsar").addEventListener("click", () => raizGlobal && colapsarADosNiveles());
 elBuscador.addEventListener("input", (e) => raizGlobal && buscar(e.target.value));
+
+const btnFiltros = document.getElementById("btnFiltros");
+const panelFiltros = document.getElementById("panelFiltros");
+btnFiltros.addEventListener("click", (e) => {
+  e.stopPropagation();
+  panelFiltros.classList.toggle("abierto");
+});
+document.addEventListener("click", (e) => {
+  if (!panelFiltros.contains(e.target) && e.target !== btnFiltros) {
+    panelFiltros.classList.remove("abierto");
+  }
+});
 
 iniciar();
 </script>
