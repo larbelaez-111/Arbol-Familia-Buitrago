@@ -13,6 +13,8 @@
     --fondo: #f7f6f3;
     --linea: #c7c0b2;
     --hover: #eef2f7;
+    --verde: #3f9142;
+    --tinta: #2f3b4c;
   }
   * { box-sizing: border-box; }
   body {
@@ -22,7 +24,7 @@
     color: #2b2b2b;
   }
   header {
-    background: #2f3b4c;
+    background: var(--tinta);
     color: #fff;
     padding: 14px 20px;
     display: flex;
@@ -57,16 +59,10 @@
     font-size: 14px;
   }
   header button:hover { filter: brightness(1.1); }
-  header a.boton-editar {
-    padding: 7px 14px;
-    border-radius: 6px;
-    background: #3f9142;
-    color: #fff;
-    text-decoration: none;
-    font-size: 14px;
+  header button.boton-editar {
+    background: var(--verde);
     white-space: nowrap;
   }
-  header a.boton-editar:hover { filter: brightness(1.1); }
   #estado {
     font-size: 12px;
     color: #cfd6e0;
@@ -151,13 +147,24 @@
   .ficha-persona { margin-bottom: 6px; }
   .ficha-nombre {
     font-weight: 700;
-    color: #2f3b4c;
+    color: var(--tinta);
     margin: 6px 0 2px;
   }
   .ficha-nombre:first-child { margin-top: 0; }
   .linea-ficha { padding: 1px 0; }
   .linea-ficha.vacio { color: #999; font-style: italic; }
   .etiqueta-ficha { font-weight: 600; color: #666; }
+  .btn-editar-ficha {
+    margin-top: 8px;
+    padding: 5px 12px;
+    font-size: 12px;
+    border: 1px solid var(--verde);
+    background: #fff;
+    color: var(--verde);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .btn-editar-ficha:hover { background: var(--verde); color: #fff; }
   .hijos {
     margin-left: 8px;
     padding-left: 15px;
@@ -224,6 +231,154 @@
     border-radius: 5px;
     cursor: pointer;
   }
+
+  /* ---------- ventana de edición ---------- */
+  .capa {
+    position: fixed;
+    inset: 0;
+    background: rgba(20,25,33,.55);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 14px;
+    overflow-y: auto;
+    z-index: 40;
+  }
+  .capa.abierta { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 470px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.32);
+    overflow: hidden;
+  }
+  .modal-cabecera {
+    background: var(--tinta);
+    color: #fff;
+    padding: 13px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-cabecera h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .modal-cerrar {
+    background: none;
+    border: none;
+    color: #cfd6e0;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .modal-cerrar:hover { color: #fff; }
+  .modal-cuerpo { padding: 16px 18px; }
+  .modal-nota {
+    font-size: 12.5px;
+    color: #666;
+    margin: 0 0 14px;
+    line-height: 1.45;
+  }
+  .campo { margin-bottom: 12px; }
+  .campo label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 4px;
+  }
+  .campo input, .campo select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc6b8;
+    border-radius: 6px;
+    background: #fff;
+    color: #2b2b2b;
+    font-family: inherit;
+  }
+  .campo input:focus, .campo select:focus {
+    outline: 2px solid var(--azul);
+    outline-offset: 1px;
+    border-color: var(--azul);
+  }
+  .campo .ayuda { font-size: 11px; color: #8a8a8a; margin-top: 3px; }
+  .campo input.cambiado { border-color: var(--verde); background: #f3faf3; }
+  .modal-pie {
+    padding: 12px 18px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid #eee;
+  }
+  .modal-pie .sep { flex: 1; }
+  .btn-primario {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--verde);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn-primario:hover { filter: brightness(1.08); }
+  .btn-primario:disabled { opacity: .55; cursor: default; filter: none; }
+  .btn-secundario {
+    padding: 9px 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #f4f3f0;
+    color: #444;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .aviso {
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    display: none;
+    line-height: 1.4;
+  }
+  .aviso.visible { display: block; }
+  .aviso.error { background: #fdecec; color: #9c2c2c; border: 1px solid #f0c6c6; }
+  .aviso.ok { background: #eef8ee; color: #2c6b2f; border: 1px solid #c6e3c8; }
+  .lista-personas {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e3ded3;
+    border-radius: 6px;
+  }
+  .lista-personas button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    border: none;
+    border-bottom: 1px solid #f0ece3;
+    background: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    color: #2b2b2b;
+    cursor: pointer;
+  }
+  .lista-personas button:hover { background: var(--hover); }
+  .lista-personas button:last-child { border-bottom: none; }
+  .lista-vacia { padding: 14px 12px; font-size: 13px; color: #999; }
+
+  @media (max-width: 620px) {
+    header h1 { font-size: 15px; white-space: normal; }
+    header input[type="text"] { width: 100%; }
+    #contenedor { height: calc(100vh - 130px); }
+  }
 </style>
 </head>
 <body>
@@ -235,7 +390,7 @@
   <button id="btnExpandir" title="Expande todas las ramas">Expandir todo</button>
   <button id="btnColapsar" title="Colapsa a la segunda generación">Colapsar</button>
   <button id="btnFiltros" title="Cónyuges y generaciones">Filtros ▾</button>
-  <a class="boton-editar" href="https://www.appsheet.com/start/7a155023-c336-4c36-b4de-e76e4d8ffcce" target="_blank" rel="noopener">✏️ Editar mis datos</a>
+  <button id="btnEditar" class="boton-editar" title="Completa o corrige los datos de un pariente">✏️ Editar mis datos</button>
   <div class="sep"></div>
   <div id="estado">Cargando...</div>
   <div class="panel-filtros" id="panelFiltros"></div>
@@ -251,24 +406,99 @@
   </div>
 </div>
 
+<!-- ===== Ventana: escoger a quién editar ===== -->
+<div class="capa" id="capaSelector">
+  <div class="modal">
+    <div class="modal-cabecera">
+      <h2>¿De quién vas a completar datos?</h2>
+      <button class="modal-cerrar" data-cerrar="capaSelector" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo">
+      <div class="campo">
+        <input id="filtroPersonas" type="text" placeholder="Escribe un nombre..." autocomplete="off">
+      </div>
+      <div class="lista-personas" id="listaPersonas"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Ventana: formulario de edición ===== -->
+<div class="capa" id="capaEditor">
+  <div class="modal">
+    <div class="modal-cabecera">
+      <h2 id="editorTitulo">Editar</h2>
+      <button class="modal-cerrar" data-cerrar="capaEditor" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo">
+      <div class="aviso" id="editorAviso"></div>
+      <p class="modal-nota">
+        Completa solo lo que falte o esté mal. Lo que dejes igual no se toca.
+        Papá y mamá deben escribirse como aparecen en el árbol.
+      </p>
+      <div id="editorCampos"></div>
+    </div>
+    <div class="modal-pie">
+      <button class="btn-secundario" data-cerrar="capaEditor">Cancelar</button>
+      <div class="sep"></div>
+      <button class="btn-primario" id="btnGuardar">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Ventana: clave familiar ===== -->
+<div class="capa" id="capaClave">
+  <div class="modal">
+    <div class="modal-cabecera">
+      <h2>Clave de la familia</h2>
+      <button class="modal-cerrar" data-cerrar="capaClave" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-cuerpo">
+      <p class="modal-nota">
+        Se pide una sola vez por visita, para que nadie de fuera modifique el árbol.
+        La compartió Leo junto con el enlace.
+      </p>
+      <div class="campo">
+        <label for="entradaClave">Clave</label>
+        <input id="entradaClave" type="password" autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="entradaEditor">Tu nombre (opcional)</label>
+        <input id="entradaEditor" type="text" autocomplete="off" placeholder="Para saber quién hizo el cambio">
+      </div>
+    </div>
+    <div class="modal-pie">
+      <button class="btn-secundario" data-cerrar="capaClave">Cancelar</button>
+      <div class="sep"></div>
+      <button class="btn-primario" id="btnConfirmarClave">Continuar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================================
-   CONFIGURACIÓN — el único dato que cambia si en algún momento usas otra
-   hoja de cálculo o publicas un nuevo tab: pega aquí el link "Publicar en
-   la web" (Archivo > Compartir > Publicar en la web > CSV).
+   CONFIGURACIÓN
+
+   1) SHEET_CSV_URL  — link "Publicar en la web" del sheet (Archivo >
+      Compartir > Publicar en la web > CSV). Es de solo lectura.
+
+   2) APPS_SCRIPT_URL — link que te da Apps Script al implementar el archivo
+      Codigo.gs como "Aplicación web". Termina en /exec.
+      Mientras esté vacío, el botón de editar avisa que falta configurarlo.
    ========================================================================= */
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBwo49JsnhVjq3-4qr2JADxWTOiS2ZholnyzouJwGwHDat6ngyw-N9bO5NcEhsfdf7IlUdPGX8qgTl/pub?gid=0&single=true&output=csv";
 
+const APPS_SCRIPT_URL = "";
+
 const elMensaje = document.getElementById("mensaje");
-const elEstado = document.getElementById("estado");
+const elEstado  = document.getElementById("estado");
 const elBuscador = document.getElementById("buscador");
-const elArbol = document.getElementById("arbol");
+const elArbol   = document.getElementById("arbol");
 
 /* ---------- utilidades de texto ---------- */
 function normalizar(s) {
   return (s || "")
     .toString()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "") // quita tildes para comparar
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")   // quita tildes para comparar
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase();
@@ -277,27 +507,30 @@ function normalizar(s) {
 /* ---------- carga y parseo del CSV ---------- */
 async function cargarDatos() {
   const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "https://script.google.com/macros/s/AKfycbwxiYB5ypy5mTxOafS-P7jvNeojiBbCXlJIndCuiijyqUkRWgKUbhEOXKUHZA6SIhkoWw/exec" });
   if (!res.ok) throw new Error("El sheet respondió " + res.status + ". Revisa que siga publicado (Archivo > Compartir > Publicar en la web).");
   const csv = await res.text();
+
   const parsed = Papa.parse(csv.trim(), { header: true, skipEmptyLines: true });
+
   const filas = parsed.data
     .map(r => ({
-      nombre: (r["Nombre"] || "").trim(),
-      genero: (r["Genero"] || "").trim().toUpperCase(),
-      generacion: (r["Generacion"] || "").trim(),
-      papa: (r["Papa"] || "").trim(),
-      mama: (r["Mama"] || "").trim(),
-      nacimiento: (r["Fecha Nacimiento"] || "").trim(),
-      anio: (r["Año"] || "").trim(),
-      conyuge: (r["Pareja"] || r["Conyuge"] || r["Cónyuge"] || "").trim(),
-      profesion: (r["Profesion"] || r["Profesión"] || "").trim(),
+      nombre:          (r["Nombre"] || "").trim(),
+      genero:          (r["Genero"] || "").trim().toUpperCase(),
+      generacion:      (r["Generacion"] || "").trim(),
+      papa:            (r["Papa"] || "").trim(),
+      mama:            (r["Mama"] || "").trim(),
+      nacimiento:      (r["Fecha Nacimiento"] || "").trim(),
+      anio:            (r["Año"] || "").trim(),
+      conyuge:         (r["Pareja"] || r["Conyuge"] || r["Cónyuge"] || "").trim(),
+      profesion:       (r["Profesion"] || r["Profesión"] || "").trim(),
       lugarNacimiento: (r["Lugar Nacimiento"] || r["Lugar de Nacimiento"] || "").trim(),
       ubicacionActual: (r["Reside Actualmente"] || r["Ubicacion Actual"] || r["Ubicación Actual"] || "").trim(),
-      edad: (r["Edad"] || "").trim(),
-      fallecimiento: (r["Fallecimiento"] || "").trim(),
+      edad:            (r["Edad"] || "").trim(),
+      fallecimiento:   (r["Fallecimiento"] || "").trim(),
     }))
     .filter(p => p.nombre);
+
   if (!filas.length) throw new Error("La hoja se leyó pero no se encontraron filas con 'Nombre'. Revisa los encabezados de columna.");
   return filas;
 }
@@ -352,7 +585,7 @@ function construirArbol(personas) {
       genero: "otro",
       esRaiz: true,
       hijos: [],
-      integrantes: g1, // para mostrar la ficha técnica de cada fundador por separado
+      integrantes: g1,   // para mostrar la ficha técnica de cada fundador por separado
     };
     g1.forEach(p => { p.hijos = raiz.hijos; });
   } else if (g1.length === 1) {
@@ -376,10 +609,11 @@ function construirArbol(personas) {
 
 /* ---------- estado del árbol en memoria ---------- */
 let raizGlobal = null;
+let personasGlobal = [];
 let idSeq = 0;
 let idMap = new Map();
 let mostrarConyuges = false;
-let filtroGeneraciones = null; // Set con las generaciones activas; null = sin filtro (todas)
+let filtroGeneraciones = null;   // Set con las generaciones activas; null = sin filtro (todas)
 
 function generacionesDisponibles() {
   const set = new Set();
@@ -421,9 +655,9 @@ function construirPanelFiltros() {
   panel.appendChild(divisor);
 
   const gens = generacionesDisponibles();
-  filtroGeneraciones = new Set(gens); // por defecto, todas activas (sin atenuar nada)
-
+  filtroGeneraciones = new Set(gens);   // por defecto, todas activas (sin atenuar nada)
   const checks = [];
+
   gens.forEach(g => {
     const lbl = document.createElement("label");
     lbl.className = "opcion-filtro";
@@ -458,7 +692,7 @@ function etiquetarIds(nodo) {
 }
 
 function fijarExpansionInicial(nodo, prof) {
-  nodo._expanded = prof < 2; // raíz y 2a generación abiertas, resto colapsado
+  nodo._expanded = prof < 2;   // raíz y 2a generación abiertas, resto colapsado
   (nodo.hijos || []).forEach(h => fijarExpansionInicial(h, prof + 1));
 }
 
@@ -499,9 +733,9 @@ function crearFila(nodo) {
   const texto = document.createElement("span");
   texto.className = "texto";
   let sufijo = "";
-  if (nodo.anio) sufijo = "  (" + nodo.anio + ")";
-  else if (nodo.generacion) sufijo = "  [" + nodo.generacion + "]";
-  if (mostrarConyuges && nodo.conyuge) sufijo += "  ⚭ " + nodo.conyuge;
+  if (nodo.anio) sufijo = " (" + nodo.anio + ")";
+  else if (nodo.generacion) sufijo = " [" + nodo.generacion + "]";
+  if (mostrarConyuges && nodo.conyuge) sufijo += " ⚭ " + nodo.conyuge;
   texto.textContent = nodo.nombre + sufijo;
   fila.appendChild(texto);
 
@@ -523,6 +757,7 @@ function crearFila(nodo) {
       renderArbol();
     });
   }
+
   return fila;
 }
 
@@ -565,16 +800,31 @@ function construirFichaPersona(p) {
     ["Profesión", p.profesion],
     ["Reside actualmente", p.ubicacionActual]
   );
+
   let algo = false;
   campos.forEach(([et, val]) => {
     if (val) { cont.appendChild(crearLineaFicha(et, val)); algo = true; }
   });
+
   if (!algo) {
     const vacio = document.createElement("div");
     vacio.className = "linea-ficha vacio";
     vacio.textContent = "Sin datos adicionales registrados.";
     cont.appendChild(vacio);
   }
+
+  // Atajo para completar/corregir esta persona sin salir del árbol
+  if (p.nombre) {
+    const btn = document.createElement("button");
+    btn.className = "btn-editar-ficha";
+    btn.textContent = "✏️ Completar o corregir";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      abrirEditor(p);
+    });
+    cont.appendChild(btn);
+  }
+
   return cont;
 }
 
@@ -600,7 +850,6 @@ function construirNodoDOM(nodo) {
   wrapper.className = "nodo-wrapper";
   wrapper.appendChild(crearFila(nodo));
   if (nodo._detalleAbierto) wrapper.appendChild(crearDetalle(nodo));
-
   if (nodo.hijos && nodo.hijos.length && nodo._expanded) {
     const hijosWrap = document.createElement("div");
     hijosWrap.className = "hijos";
@@ -651,11 +900,230 @@ function buscar(termino) {
   if (primerMatch && primerMatch.scrollIntoView) primerMatch.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+/* =========================================================================
+   EDICIÓN — escribe de vuelta en el Google Sheet a través de Apps Script.
+   Los parientes NO necesitan cuenta de Google: basta la clave familiar.
+   ========================================================================= */
+
+// Campos que se pueden completar desde la web. La "clave" es la propiedad en
+// memoria; la "columna" es el encabezado real del sheet.
+const CAMPOS_EDITABLES = [
+  { clave: "genero",          columna: "Genero",             etiqueta: "Género", tipo: "select",
+    opciones: [["", "(sin dato)"], ["M", "Hombre"], ["F", "Mujer"]] },
+  { clave: "papa",            columna: "Papa",               etiqueta: "Papá",
+    ayuda: "Tal como aparece su nombre en el árbol" },
+  { clave: "mama",            columna: "Mama",               etiqueta: "Mamá",
+    ayuda: "Tal como aparece su nombre en el árbol" },
+  { clave: "nacimiento",      columna: "Fecha Nacimiento",   etiqueta: "Fecha de nacimiento",
+    ayuda: "Formato dd/mm/aaaa" },
+  { clave: "anio",            columna: "Año",                etiqueta: "Año" },
+  { clave: "conyuge",         columna: "Pareja",             etiqueta: "Pareja" },
+  { clave: "profesion",       columna: "Profesion",          etiqueta: "Profesión" },
+  { clave: "lugarNacimiento", columna: "Lugar Nacimiento",   etiqueta: "Lugar de nacimiento" },
+  { clave: "ubicacionActual", columna: "Reside Actualmente", etiqueta: "Reside actualmente" },
+  { clave: "fallecimiento",   columna: "Fallecimiento",      etiqueta: "Fallecimiento",
+    ayuda: "Solo si la persona ya falleció (dd/mm/aaaa)" },
+];
+
+let personaEnEdicion = null;
+let claveFamiliar = null;    // se pide una vez por visita, no se guarda en el equipo
+let nombreEditor = "";
+let accionTrasClave = null;
+
+function abrirCapa(id)  { document.getElementById(id).classList.add("abierta"); }
+function cerrarCapa(id) { document.getElementById(id).classList.remove("abierta"); }
+
+function mostrarAviso(texto, tipo) {
+  const av = document.getElementById("editorAviso");
+  av.textContent = texto;
+  av.className = "aviso visible " + (tipo || "error");
+}
+function limpiarAviso() {
+  document.getElementById("editorAviso").className = "aviso";
+}
+
+/* ---------- selector de persona ---------- */
+function abrirSelector() {
+  if (!APPS_SCRIPT_URL) {
+    alert("Falta conectar el guardado.\n\nAbre index.html y pega en APPS_SCRIPT_URL el link /exec que te dio Apps Script.");
+    return;
+  }
+  document.getElementById("filtroPersonas").value = "";
+  pintarListaPersonas("");
+  abrirCapa("capaSelector");
+  setTimeout(() => document.getElementById("filtroPersonas").focus(), 60);
+}
+
+function pintarListaPersonas(filtro) {
+  const lista = document.getElementById("listaPersonas");
+  lista.innerHTML = "";
+  const norm = normalizar(filtro);
+  const encontradas = personasGlobal
+    .filter(p => !norm || normalizar(p.nombre).includes(norm))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+  if (!encontradas.length) {
+    const vacio = document.createElement("div");
+    vacio.className = "lista-vacia";
+    vacio.textContent = "Ningún nombre coincide con esa búsqueda.";
+    lista.appendChild(vacio);
+    return;
+  }
+
+  encontradas.slice(0, 200).forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = p.nombre + (p.generacion ? "  ·  " + p.generacion : "");
+    b.addEventListener("click", () => {
+      cerrarCapa("capaSelector");
+      abrirEditor(p);
+    });
+    lista.appendChild(b);
+  });
+}
+
+/* ---------- formulario ---------- */
+function abrirEditor(persona) {
+  if (!APPS_SCRIPT_URL) {
+    alert("Falta conectar el guardado.\n\nAbre index.html y pega en APPS_SCRIPT_URL el link /exec que te dio Apps Script.");
+    return;
+  }
+  personaEnEdicion = persona;
+  document.getElementById("editorTitulo").textContent = persona.nombre;
+  limpiarAviso();
+
+  const cont = document.getElementById("editorCampos");
+  cont.innerHTML = "";
+
+  CAMPOS_EDITABLES.forEach(def => {
+    const bloque = document.createElement("div");
+    bloque.className = "campo";
+
+    const lbl = document.createElement("label");
+    lbl.textContent = def.etiqueta;
+    lbl.setAttribute("for", "campo_" + def.clave);
+    bloque.appendChild(lbl);
+
+    const valorActual = (persona[def.clave] || "").toString();
+
+    let control;
+    if (def.tipo === "select") {
+      control = document.createElement("select");
+      def.opciones.forEach(([val, txt]) => {
+        const op = document.createElement("option");
+        op.value = val;
+        op.textContent = txt;
+        if (val === valorActual) op.selected = true;
+        control.appendChild(op);
+      });
+    } else {
+      control = document.createElement("input");
+      control.type = "text";
+      control.value = valorActual;
+      control.autocomplete = "off";
+      control.addEventListener("input", () => {
+        control.classList.toggle("cambiado", control.value.trim() !== valorActual.trim());
+      });
+    }
+    control.id = "campo_" + def.clave;
+    control.dataset.clave = def.clave;
+    control.dataset.original = valorActual;
+    bloque.appendChild(control);
+
+    if (def.ayuda) {
+      const ay = document.createElement("div");
+      ay.className = "ayuda";
+      ay.textContent = def.ayuda;
+      bloque.appendChild(ay);
+    }
+
+    cont.appendChild(bloque);
+  });
+
+  abrirCapa("capaEditor");
+}
+
+function recolectarCambios() {
+  const cambios = {};       // por columna del sheet
+  const cambiosMemoria = {}; // por clave en memoria
+  CAMPOS_EDITABLES.forEach(def => {
+    const control = document.getElementById("campo_" + def.clave);
+    if (!control) return;
+    const original = (control.dataset.original || "").trim();
+    const nuevo = (control.value || "").trim();
+    if (original !== nuevo) {
+      cambios[def.columna] = nuevo;
+      cambiosMemoria[def.clave] = nuevo;
+    }
+  });
+  return { cambios, cambiosMemoria };
+}
+
+async function guardarCambios() {
+  if (!personaEnEdicion) return;
+  const { cambios, cambiosMemoria } = recolectarCambios();
+
+  if (!Object.keys(cambios).length) {
+    mostrarAviso("No cambiaste ningún dato todavía.", "error");
+    return;
+  }
+
+  if (!claveFamiliar) {
+    accionTrasClave = guardarCambios;
+    document.getElementById("entradaClave").value = "";
+    abrirCapa("capaClave");
+    setTimeout(() => document.getElementById("entradaClave").focus(), 60);
+    return;
+  }
+
+  const btn = document.getElementById("btnGuardar");
+  btn.disabled = true;
+  btn.textContent = "Guardando...";
+  limpiarAviso();
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },  // evita el preflight de CORS
+      body: JSON.stringify({
+        clave: claveFamiliar,
+        editor: nombreEditor,
+        nombre: personaEnEdicion.nombre,
+        campos: cambios
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      if (/clave/i.test(data.error || "")) claveFamiliar = null;  // vuelve a pedirla
+      mostrarAviso(data.error || "No se pudo guardar.", "error");
+      return;
+    }
+
+    // Refleja el cambio de inmediato en el árbol que ya está en pantalla
+    Object.keys(cambiosMemoria).forEach(k => { personaEnEdicion[k] = cambiosMemoria[k]; });
+    if (cambiosMemoria.genero) personaEnEdicion.genero = cambiosMemoria.genero.toUpperCase();
+    renderArbol();
+
+    mostrarAviso("Listo. Se guardaron " + data.cambios + " dato(s) en la hoja.", "ok");
+    setTimeout(() => { cerrarCapa("capaEditor"); limpiarAviso(); }, 1400);
+
+  } catch (err) {
+    mostrarAviso("No se pudo conectar con el servicio de guardado. Revisa tu conexión e inténtalo otra vez.", "error");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Guardar cambios";
+  }
+}
+
 /* ---------- arranque ---------- */
 async function iniciar() {
   try {
     elEstado.textContent = "Cargando...";
     const personas = await cargarDatos();
+    personasGlobal = personas;
     const { raiz, huerfanos } = construirArbol(personas);
 
     idSeq = 0;
@@ -665,6 +1133,7 @@ async function iniciar() {
     raizGlobal = raiz;
 
     construirPanelFiltros();
+
     elMensaje.style.display = "none";
     renderArbol();
 
@@ -683,7 +1152,35 @@ async function iniciar() {
 document.getElementById("btnRefrescar").addEventListener("click", iniciar);
 document.getElementById("btnExpandir").addEventListener("click", () => raizGlobal && expandirTodo());
 document.getElementById("btnColapsar").addEventListener("click", () => raizGlobal && colapsarADosNiveles());
+document.getElementById("btnEditar").addEventListener("click", () => raizGlobal && abrirSelector());
 elBuscador.addEventListener("input", (e) => raizGlobal && buscar(e.target.value));
+
+document.getElementById("filtroPersonas").addEventListener("input", (e) => pintarListaPersonas(e.target.value));
+document.getElementById("btnGuardar").addEventListener("click", guardarCambios);
+
+document.getElementById("btnConfirmarClave").addEventListener("click", () => {
+  const val = document.getElementById("entradaClave").value.trim();
+  if (!val) return;
+  claveFamiliar = val;
+  nombreEditor = document.getElementById("entradaEditor").value.trim();
+  cerrarCapa("capaClave");
+  const seguir = accionTrasClave;
+  accionTrasClave = null;
+  if (seguir) seguir();
+});
+document.getElementById("entradaClave").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("btnConfirmarClave").click();
+});
+
+document.querySelectorAll("[data-cerrar]").forEach(b => {
+  b.addEventListener("click", () => cerrarCapa(b.dataset.cerrar));
+});
+document.querySelectorAll(".capa").forEach(capa => {
+  capa.addEventListener("click", (e) => { if (e.target === capa) capa.classList.remove("abierta"); });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelectorAll(".capa.abierta").forEach(c => c.classList.remove("abierta"));
+});
 
 const btnFiltros = document.getElementById("btnFiltros");
 const panelFiltros = document.getElementById("panelFiltros");
