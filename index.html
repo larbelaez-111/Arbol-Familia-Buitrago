@@ -127,13 +127,44 @@
   .texto { color: #2b2b2b; }
   .fila-nodo.resaltado { background: #fff3b0; }
   .fila-nodo.atenuado { opacity: .28; }
-  .info-icono {
-    margin-left: 8px;
-    color: #7a8ba3;
+
+  /* ---------- botones de generación en la barra ---------- */
+  .grupo-gen { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .btn-gen {
+    padding: 7px 12px;
+    border: 1px solid #5b6b82;
+    border-radius: 6px;
+    background: #3a4657;
+    color: #dfe5ee;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
+    white-space: nowrap;
   }
-  .info-icono.abierto { color: #2f5a86; font-weight: 700; }
+  .btn-gen:hover { background: #465468; }
+  .btn-gen.activo {
+    background: #f2c14e;
+    color: #3a2f12;
+    border-color: #f2c14e;
+    font-weight: 600;
+  }
+  .info-btn {
+    margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 9px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #2f5a86;
+    background: #eaf1f8;
+    border: 1px solid #cfdded;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: none;
+    white-space: nowrap;
+  }
+  .info-btn:hover { background: #dce8f4; }
+  .info-btn.abierto { background: #2f5a86; color: #fff; border-color: #2f5a86; }
   .detalle {
     margin: 2px 0 6px 34px;
     padding: 8px 12px;
@@ -389,7 +420,8 @@
   <button id="btnRefrescar" title="Vuelve a leer el Google Sheet">Actualizar datos</button>
   <button id="btnExpandir" title="Expande todas las ramas">Expandir todo</button>
   <button id="btnColapsar" title="Colapsa a la segunda generación">Colapsar</button>
-  <button id="btnFiltros" title="Cónyuges y generaciones">Filtros ▾</button>
+  <span id="botonesGen" class="grupo-gen"></span>
+  <button id="btnFiltros" title="Elige qué datos ver junto a cada nombre">Columnas ▾</button>
   <button id="btnEditar" class="boton-editar" title="Completa o corrige los datos de un pariente">✏️ Editar mis datos</button>
   <div class="sep"></div>
   <div id="estado">Cargando...</div>
@@ -513,21 +545,40 @@ async function cargarDatos() {
 
   const parsed = Papa.parse(csv.trim(), { header: true, skipEmptyLines: true });
 
+  // Lee una columna tolerando tildes, espacios dobles y nombres alternativos.
+  // Así funciona sin importar si el encabezado real dice "Nacio en" o
+  // "Lugar Nacimiento", "Profesion / Actividad" o "Profesion", etc.
+  function campo(r, candidatos) {
+    const claves = Object.keys(r);
+    for (let c = 0; c < candidatos.length; c++) {
+      const buscado = normalizar(candidatos[c]);
+      for (let k = 0; k < claves.length; k++) {
+        if (normalizar(claves[k]) === buscado) return (r[claves[k]] || "").trim();
+      }
+    }
+    return "";
+  }
+
   const filas = parsed.data
     .map(r => ({
-      nombre:          (r["Nombre"] || "").trim(),
-      genero:          (r["Genero"] || "").trim().toUpperCase(),
-      generacion:      (r["Generacion"] || "").trim(),
-      papa:            (r["Papa"] || "").trim(),
-      mama:            (r["Mama"] || "").trim(),
-      nacimiento:      (r["Fecha Nacimiento"] || "").trim(),
-      anio:            (r["Año"] || "").trim(),
-      conyuge:         (r["Pareja"] || r["Conyuge"] || r["Cónyuge"] || "").trim(),
-      profesion:       (r["Profesion"] || r["Profesión"] || "").trim(),
-      lugarNacimiento: (r["Lugar Nacimiento"] || r["Lugar de Nacimiento"] || "").trim(),
-      ubicacionActual: (r["Reside Actualmente"] || r["Ubicacion Actual"] || r["Ubicación Actual"] || "").trim(),
-      edad:            (r["Edad"] || "").trim(),
-      fallecimiento:   (r["Fallecimiento"] || "").trim(),
+      nombre:          campo(r, ["Nombre"]),
+      genero:          campo(r, ["Genero", "Género", "Sexo"]).toUpperCase(),
+      generacion:      campo(r, ["Generacion", "Generación"]),
+      papa:            campo(r, ["Papa", "Papá"]),
+      mama:            campo(r, ["Mama", "Mamá"]),
+      nacimiento:      campo(r, ["Fecha Nacimiento", "Fecha de Nacimiento"]),
+      anio:            campo(r, ["Año", "Anio", "Ano"]),
+      conyuge:         campo(r, ["Pareja", "Conyuge", "Cónyuge"]),
+      profesion:       campo(r, ["Profesion / Actividad", "Profesión / Actividad", "Profesion", "Profesión", "Actividad"]),
+      lugarNacimiento: campo(r, ["Nacio en", "Nació en", "Lugar Nacimiento", "Lugar de Nacimiento"]),
+      ubicacionActual: campo(r, ["Vive en", "Reside Actualmente", "Ubicacion Actual", "Ubicación Actual"]),
+      trabajaCargo:    campo(r, ["Trabaja en / Cargo", "Trabaja en  / Cargo", "Trabaja en", "Cargo"]),
+      telefono:        campo(r, ["Telefono", "Teléfono", "Celular"]),
+      correo:          campo(r, ["Correo Electronico", "Correo Electrónico", "Correo", "Email", "E-mail"]),
+      redes:           campo(r, ["Redes", "Redes Sociales"]),
+      notas:           campo(r, ["Notas", "Observaciones"]),
+      edad:            campo(r, ["Edad"]),
+      fallecimiento:   campo(r, ["Fallecimiento"]),
     }))
     .filter(p => p.nombre);
 
@@ -552,6 +603,35 @@ function calcularEdad(fechaStr) {
   const m = hoy.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) edad--;
   return edad;
+}
+
+/* Edad a la que falleció: entre nacimiento y fallecimiento (no hasta hoy). */
+function edadAlMorir(p) {
+  const n = parseFechaDMY(p.nacimiento);
+  const f = parseFechaDMY(p.fallecimiento);
+  if (!n || !f) return null;
+  let edad = f.getFullYear() - n.getFullYear();
+  const m = f.getMonth() - n.getMonth();
+  if (m < 0 || (m === 0 && f.getDate() < n.getDate())) edad--;
+  return edad;
+}
+
+/* Edad para mostrar: si falleció, la edad al morir (se ignora la columna
+   "Edad" del sheet); si está vivo, la edad actual desde la fecha, y como
+   respaldo la columna "Edad". */
+function edadMostrable(p) {
+  if (p.fallecimiento) return edadAlMorir(p);
+  const calc = calcularEdad(p.nacimiento);
+  if (calc !== null) return calc;
+  if (p.edad && /^\d+$/.test(p.edad.trim())) return parseInt(p.edad, 10);
+  return null;
+}
+
+/* Fecha de nacimiento con la edad entre paréntesis: "17/03/1979 (47)". */
+function nacimientoConEdad(p) {
+  if (!p.nacimiento) return "";
+  const e = edadMostrable(p);
+  return p.nacimiento + (e !== null ? " (" + e + ")" : "");
 }
 
 /* ---------- arma el árbol a partir de las columnas Papa / Mama ---------- */
@@ -612,8 +692,32 @@ let raizGlobal = null;
 let personasGlobal = [];
 let idSeq = 0;
 let idMap = new Map();
-let mostrarConyuges = false;
-let filtroGeneraciones = null;   // Set con las generaciones activas; null = sin filtro (todas)
+let generacionResaltada = null;      // "G2", "G3"... o null = ver todas por igual
+let columnasVisibles = new Set();    // qué columnas se muestran junto al nombre
+
+// Columnas que se pueden mostrar al lado del nombre (las vacías no se ven).
+// El año ya sale entre paréntesis en el nombre, por eso no se repite aquí.
+const COLUMNAS_MOSTRABLES = [
+  { clave: "generacion",      etiqueta: "Generación",          get: p => p.generacion },
+  { clave: "nacimiento",      etiqueta: "Fecha de nacimiento", get: p => nacimientoConEdad(p) },
+  { clave: "fallecimiento",   etiqueta: "Fallecimiento",       get: p => p.fallecimiento },
+  { clave: "papa",            etiqueta: "Papá",                get: p => p.papa },
+  { clave: "mama",            etiqueta: "Mamá",                get: p => p.mama },
+  { clave: "conyuge",         etiqueta: "Pareja",              get: p => p.conyuge },
+  { clave: "profesion",       etiqueta: "Profesión / Actividad", get: p => p.profesion },
+  { clave: "lugarNacimiento", etiqueta: "Nació en",            get: p => p.lugarNacimiento },
+  { clave: "ubicacionActual", etiqueta: "Vive en",             get: p => p.ubicacionActual },
+  { clave: "trabajaCargo",    etiqueta: "Trabaja en / Cargo",  get: p => p.trabajaCargo },
+  { clave: "telefono",        etiqueta: "Teléfono",            get: p => p.telefono },
+  { clave: "correo",          etiqueta: "Correo electrónico",  get: p => p.correo },
+  { clave: "redes",           etiqueta: "Redes",               get: p => p.redes },
+  { clave: "notas",           etiqueta: "Notas",               get: p => p.notas },
+];
+
+// Nombres "de parentesco" de cada generación respecto a la pareja fundadora.
+const NOMBRE_GENERACION = {
+  G2: "Hijos", G3: "Nietos", G4: "Bisnietos", G5: "Tataranietos", G6: "Choznos"
+};
 
 function generacionesDisponibles() {
   const set = new Set();
@@ -624,65 +728,79 @@ function generacionesDisponibles() {
   return [...set].sort();
 }
 
-function actualizarFiltroGeneracion() {
+/* ---------- Cambio 2a: botones de generación en la barra ---------- */
+function aplicarResaltadoGeneracion() {
   (function marcar(n) {
-    n._fueraFiltro = !!(filtroGeneraciones && n.generacion && !filtroGeneraciones.has(n.generacion));
+    n._fueraFiltro = !!(generacionResaltada && n.generacion && n.generacion !== generacionResaltada);
     (n.hijos || []).forEach(marcar);
   })(raizGlobal);
+  construirBotonesGeneracion();   // refresca cuál queda marcado
   renderArbol();
 }
 
-function construirPanelFiltros() {
+function construirBotonesGeneracion() {
+  const cont = document.getElementById("botonesGen");
+  cont.innerHTML = "";
+
+  const gens = generacionesDisponibles().filter(g => g !== "G1");
+  gens.forEach(g => {
+    const b = document.createElement("button");
+    b.className = "btn-gen" + (generacionResaltada === g ? " activo" : "");
+    b.textContent = NOMBRE_GENERACION[g] ? (g + " · " + NOMBRE_GENERACION[g]) : g;
+    b.addEventListener("click", () => {
+      generacionResaltada = (generacionResaltada === g) ? null : g;   // segundo toque = ver todo
+      aplicarResaltadoGeneracion();
+    });
+    cont.appendChild(b);
+  });
+
+  const bTodos = document.createElement("button");
+  bTodos.className = "btn-gen" + (generacionResaltada === null ? " activo" : "");
+  bTodos.textContent = "Todos";
+  bTodos.addEventListener("click", () => {
+    generacionResaltada = null;
+    aplicarResaltadoGeneracion();
+  });
+  cont.appendChild(bTodos);
+}
+
+/* ---------- Cambio 2b: panel para elegir columnas junto al nombre ---------- */
+function construirPanelColumnas() {
   const panel = document.getElementById("panelFiltros");
   panel.innerHTML = "";
 
-  const filaConyuge = document.createElement("label");
-  filaConyuge.className = "opcion-filtro";
-  const chkConyuge = document.createElement("input");
-  chkConyuge.type = "checkbox";
-  chkConyuge.checked = mostrarConyuges;
-  chkConyuge.addEventListener("change", () => {
-    mostrarConyuges = chkConyuge.checked;
-    renderArbol();
-  });
-  filaConyuge.appendChild(chkConyuge);
-  filaConyuge.appendChild(document.createTextNode(" Mostrar cónyuges"));
-  panel.appendChild(filaConyuge);
+  const titulo = document.createElement("div");
+  titulo.className = "divisor-filtro";
+  titulo.style.borderTop = "none";
+  titulo.style.marginTop = "0";
+  titulo.style.paddingTop = "0";
+  titulo.textContent = "Mostrar junto al nombre";
+  panel.appendChild(titulo);
 
-  const divisor = document.createElement("div");
-  divisor.className = "divisor-filtro";
-  divisor.textContent = "Generaciones";
-  panel.appendChild(divisor);
-
-  const gens = generacionesDisponibles();
-  filtroGeneraciones = new Set(gens);   // por defecto, todas activas (sin atenuar nada)
-  const checks = [];
-
-  gens.forEach(g => {
+  COLUMNAS_MOSTRABLES.forEach(col => {
     const lbl = document.createElement("label");
     lbl.className = "opcion-filtro";
     const chk = document.createElement("input");
     chk.type = "checkbox";
-    chk.checked = true;
+    chk.checked = columnasVisibles.has(col.clave);
     chk.addEventListener("change", () => {
-      if (chk.checked) filtroGeneraciones.add(g); else filtroGeneraciones.delete(g);
-      actualizarFiltroGeneracion();
+      if (chk.checked) columnasVisibles.add(col.clave); else columnasVisibles.delete(col.clave);
+      renderArbol();
     });
-    checks.push(chk);
     lbl.appendChild(chk);
-    lbl.appendChild(document.createTextNode(" " + g));
+    lbl.appendChild(document.createTextNode(" " + col.etiqueta));
     panel.appendChild(lbl);
   });
 
-  const btnTodas = document.createElement("button");
-  btnTodas.className = "mini-btn";
-  btnTodas.textContent = "Marcar todas";
-  btnTodas.addEventListener("click", () => {
-    checks.forEach(c => { c.checked = true; });
-    filtroGeneraciones = new Set(gens);
-    actualizarFiltroGeneracion();
+  const btnLimpiar = document.createElement("button");
+  btnLimpiar.className = "mini-btn";
+  btnLimpiar.textContent = "Quitar todas";
+  btnLimpiar.addEventListener("click", () => {
+    columnasVisibles.clear();
+    construirPanelColumnas();
+    renderArbol();
   });
-  panel.appendChild(btnTodas);
+  panel.appendChild(btnLimpiar);
 }
 
 function etiquetarIds(nodo) {
@@ -735,14 +853,23 @@ function crearFila(nodo) {
   let sufijo = "";
   if (nodo.anio) sufijo = " (" + nodo.anio + ")";
   else if (nodo.generacion) sufijo = " [" + nodo.generacion + "]";
-  if (mostrarConyuges && nodo.conyuge) sufijo += " ⚭ " + nodo.conyuge;
-  texto.textContent = nodo.nombre + sufijo;
+
+  // Columnas elegidas en "Columnas ▾", anexadas con " · " (vacías no se ven)
+  const extras = [];
+  COLUMNAS_MOSTRABLES.forEach(col => {
+    if (columnasVisibles.has(col.clave)) {
+      const v = (col.get(nodo) || "").toString().trim();
+      if (v) extras.push(v);
+    }
+  });
+
+  texto.textContent = nodo.nombre + sufijo + (extras.length ? "   ·   " + extras.join("   ·   ") : "");
   fila.appendChild(texto);
 
   const info = document.createElement("span");
-  info.className = "info-icono" + (nodo._detalleAbierto ? " abierto" : "");
-  info.textContent = "ⓘ";
-  info.title = "Ver ficha técnica";
+  info.className = "info-btn" + (nodo._detalleAbierto ? " abierto" : "");
+  info.textContent = "ⓘ Información";
+  info.title = "Ver o cerrar la ficha";
   info.addEventListener("click", (e) => {
     e.stopPropagation();
     nodo._detalleAbierto = !nodo._detalleAbierto;
@@ -750,10 +877,18 @@ function crearFila(nodo) {
   });
   fila.appendChild(info);
 
+  fila.style.cursor = "pointer";
   if (tieneHijos) {
-    fila.style.cursor = "pointer";
+    // Con hijos: al tocar la fila se expande/colapsa la rama
     fila.addEventListener("click", () => {
       nodo._expanded = !nodo._expanded;
+      renderArbol();
+    });
+  } else {
+    // Cambio 3: sin hijos, al tocar la fila se abre/cierra su ficha,
+    // para que el toque nunca quede sin respuesta
+    fila.addEventListener("click", () => {
+      nodo._detalleAbierto = !nodo._detalleAbierto;
       renderArbol();
     });
   }
@@ -776,29 +911,35 @@ function construirFichaPersona(p) {
   const cont = document.createElement("div");
   cont.className = "ficha-persona";
 
-  // Se usa la columna "Edad" del sheet si existe; si no, se calcula desde la
-  // fecha de nacimiento como respaldo.
-  const edadCalc = calcularEdad(p.nacimiento);
-  const edadTexto = p.edad || (edadCalc !== null ? String(edadCalc) : "");
-
   const campos = [
     ["Papá", p.papa],
     ["Mamá", p.mama],
-    ["Fecha de nacimiento", p.nacimiento],
   ];
 
   if (p.fallecimiento) {
-    // Solo para fallecidos: fecha de fallecimiento + edad entre paréntesis
-    campos.push(["Fallecimiento", p.fallecimiento + (edadTexto ? " (" + edadTexto + " años)" : "")]);
+    // Fallecidos: la fecha de nacimiento va sin edad, y la edad (a la que
+    // murió, no la de hoy) acompaña al renglón de fallecimiento.
+    const em = edadAlMorir(p);
+    campos.push(["Fecha de nacimiento", p.nacimiento]);
+    campos.push(["Fallecimiento", p.fallecimiento + (em !== null ? " (" + em + " años)" : "")]);
   } else {
-    campos.push(["Edad", edadTexto ? (edadTexto + " años") : ""]);
+    // Vivos: la edad actual va junta con la fecha de nacimiento, en un solo
+    // renglón. Ya no hay renglón "Edad" aparte.
+    const e = edadMostrable(p);
+    const fechaTxt = p.nacimiento + (p.nacimiento && e !== null ? " (" + e + " años)" : "");
+    campos.push(["Fecha de nacimiento", fechaTxt]);
   }
 
   campos.push(
-    ["Lugar de nacimiento", p.lugarNacimiento],
+    ["Nació en", p.lugarNacimiento],
+    ["Vive en", p.ubicacionActual],
     ["Pareja", p.conyuge],
-    ["Profesión", p.profesion],
-    ["Reside actualmente", p.ubicacionActual]
+    ["Profesión / actividad", p.profesion],
+    ["Trabaja en / cargo", p.trabajaCargo],
+    ["Teléfono", p.telefono],
+    ["Correo", p.correo],
+    ["Redes", p.redes],
+    ["Notas", p.notas]
   );
 
   let algo = false;
@@ -1132,7 +1273,9 @@ async function iniciar() {
     fijarExpansionInicial(raiz, 0);
     raizGlobal = raiz;
 
-    construirPanelFiltros();
+    construirPanelColumnas();
+    construirBotonesGeneracion();
+    aplicarResaltadoGeneracion();   // respeta la generación resaltada tras "Actualizar datos"
 
     elMensaje.style.display = "none";
     renderArbol();
