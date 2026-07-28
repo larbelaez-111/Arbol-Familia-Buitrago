@@ -507,7 +507,7 @@ function normalizar(s) {
 /* ---------- carga y parseo del CSV ---------- */
 async function cargarDatos() {
   const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
-  const res = await fetch(url, { cache: "no_store" });
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error("El sheet respondió " + res.status + ". Revisa que siga publicado (Archivo > Compartir > Publicar en la web).");
   const csv = await res.text();
 
