@@ -487,7 +487,7 @@
    ========================================================================= */
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBwo49JsnhVjq3-4qr2JADxWTOiS2ZholnyzouJwGwHDat6ngyw-N9bO5NcEhsfdf7IlUdPGX8qgTl/pub?gid=0&single=true&output=csv";
 
-const APPS_SCRIPT_URL = "";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxiYB5ypy5mTxOafS-P7jvNeojiBbCXlJIndCuiijyqUkRWgKUbhEOXKUHZA6SIhkoWw/exec";
 
 const elMensaje = document.getElementById("mensaje");
 const elEstado  = document.getElementById("estado");
@@ -507,7 +507,7 @@ function normalizar(s) {
 /* ---------- carga y parseo del CSV ---------- */
 async function cargarDatos() {
   const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
-  const res = await fetch(url, { cache: "https://script.google.com/macros/s/AKfycbwxiYB5ypy5mTxOafS-P7jvNeojiBbCXlJIndCuiijyqUkRWgKUbhEOXKUHZA6SIhkoWw/exec" });
+  const res = await fetch(url, { cache: "no_store" });
   if (!res.ok) throw new Error("El sheet respondió " + res.status + ". Revisa que siga publicado (Archivo > Compartir > Publicar en la web).");
   const csv = await res.text();
 
